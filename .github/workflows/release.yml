@@ -41,8 +41,7 @@ jobs:
           set -euo pipefail
           mkdir -p out
           cp "dist/WorkBuddySignin.exe" "out/WorkBuddy-Signin-${GITHUB_REF_NAME}-windows-x64.exe"
-          cp "desktop/README.md" "out/使用说明.txt" 2>/dev/null || true
-          cd out && sha256sum *.exe > SHA256SUMS.txt
+          cd out && sha256sum *.exe > SHA256SUMS-windows.txt
 
       - uses: actions/upload-artifact@v4
         with:
@@ -69,7 +68,7 @@ jobs:
           set -euo pipefail
           mkdir -p out
           cp "dist/WorkBuddySignin.dmg" "out/WorkBuddy-Signin-${GITHUB_REF_NAME}-macOS-arm64.dmg"
-          cd out && shasum -a 256 *.dmg > SHA256SUMS.txt
+          cd out && shasum -a 256 *.dmg > SHA256SUMS-macos.txt
 
       - uses: actions/upload-artifact@v4
         with:
@@ -88,7 +87,7 @@ jobs:
       - name: Collect files
         run: |
           mkdir -p release
-          find artifacts -type f -exec cp {} release/ \;
+          find artifacts -type f \( -name '*.exe' -o -name '*.dmg' -o -name 'SHA256SUMS-*.txt' \) -exec cp {} release/ \;
           ls -lh release
 
       - uses: softprops/action-gh-release@v2
@@ -111,7 +110,7 @@ jobs:
             >
             > Intel Mac 请用源码运行：`pip3 install pywebview && bash 打包mac.sh`（需自备 x86_64 Python）。
 
-            校验：附件里的 `SHA256SUMS.txt` 可用于校验下载完整性。
+            校验：`SHA256SUMS-windows.txt` / `SHA256SUMS-macos.txt` 分别是两个平台的校验和。
 
             ### 这个工具做什么
             每天自动领取你自己的 WorkBuddy 签到积分：微信扫码登录（官方登录页）、多账号各自隔离、
