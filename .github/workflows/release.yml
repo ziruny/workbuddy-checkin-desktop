@@ -1,0 +1,118 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    name: Windows x64
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install build deps
+        run: python -m pip install --upgrade pywebview pyinstaller
+
+      - name: Build single-file exe
+        shell: cmd
+        run: >
+          python -m PyInstaller --noconfirm --clean --onefile --windowed
+          --name "WorkBuddySignin"
+          --icon "assets\app.ico"
+          --add-data "desktop/ui;ui"
+          --paths . --paths desktop
+          --collect-all webview --collect-all clr_loader --collect-all pythonnet
+          --hidden-import webview.platforms.edgechromium
+          --hidden-import webview.platforms.winforms
+          desktop\app.py
+
+      - name: Package artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          cp "dist/WorkBuddySignin.exe" "out/WorkBuddy-Signin-${GITHUB_REF_NAME}-windows-x64.exe"
+          cp "desktop/README.md" "out/使用说明.txt" 2>/dev/null || true
+          cd out && sha256sum *.exe > SHA256SUMS.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: out/*
+
+  macos:
+    name: macOS arm64
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Build .app and .dmg
+        env:
+          APP_NAME: WorkBuddySignin
+        run: bash 打包mac.sh
+
+      - name: Package artifact
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          cp "dist/WorkBuddySignin.dmg" "out/WorkBuddy-Signin-${GITHUB_REF_NAME}-macOS-arm64.dmg"
+          cd out && shasum -a 256 *.dmg > SHA256SUMS.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos
+          path: out/*
+
+  publish:
+    name: Publish release
+    needs: [windows, macos]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Collect files
+        run: |
+          mkdir -p release
+          find artifacts -type f -exec cp {} release/ \;
+          ls -lh release
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: release/*
+          generate_release_notes: true
+          body: |
+            ## 下载
+
+            | 平台 | 文件 | 说明 |
+            |---|---|---|
+            | Windows 10/11 x64 | `*-windows-x64.exe` | 单文件，双击即用，无需安装 Python |
+            | macOS（Apple Silicon） | `*-macOS-arm64.dmg` | 拖进「应用程序」即可 |
+
+            > [!IMPORTANT]
+            > 构建产物**未做代码签名**：
+            > - Windows 首次运行可能被 SmartScreen 拦，点「更多信息 → 仍要运行」。
+            > - macOS 首次打开若提示「无法验证开发者」，右键 → 打开，或执行
+            >   `xattr -dr com.apple.quarantine /Applications/WorkBuddySignin.app`。
+            >
+            > Intel Mac 请用源码运行：`pip3 install pywebview && bash 打包mac.sh`（需自备 x86_64 Python）。
+
+            校验：附件里的 `SHA256SUMS.txt` 可用于校验下载完整性。
+
+            ### 这个工具做什么
+            每天自动领取你自己的 WorkBuddy 签到积分：微信扫码登录（官方登录页）、多账号各自隔离、
+            一键签到、每日定时。**非官方工具**，与腾讯/WorkBuddy 无隶属关系，接口随时可能失效。

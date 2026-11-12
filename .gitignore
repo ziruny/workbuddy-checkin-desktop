@@ -6,4 +6,8 @@ __pycache__/
 # WorkBuddy local workspace data (contains credentials / memory / automation config)
 .workbuddy/
 signin.log
-qoder_signin.log
+
+# 桌面面板打包产物（用 打包exe.bat 随时重建）
+build/
+dist/
+*.spec

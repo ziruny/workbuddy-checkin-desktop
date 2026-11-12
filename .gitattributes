@@ -1,0 +1,19 @@
+# 统一换行，避免 Windows 上克隆后 macOS 脚本带 CRLF 直接跑不起来
+* text=auto
+
+*.sh      text eol=lf
+*.command text eol=lf
+*.bat     text eol=crlf
+*.ps1     text eol=crlf
+*.py      text eol=lf
+*.html    text eol=lf
+*.md      text eol=lf
+*.yml     text eol=lf
+*.json    text eol=lf
+
+*.ico binary
+*.icns binary
+*.png binary
+*.jpg binary
+*.exe binary
+*.dmg binary

@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WorkBuddy 签到助手</title>
+<style>
+  :root{
+    --bg:#0a0c11;
+    --bg-glow:rgba(79,124,255,.10);
+    --panel:#13161e;
+    --panel-2:#171b25;
+    --line:#232838;
+    --line-soft:#1c2130;
+    --text:#e9ecf4;
+    --muted:#8a93a8;
+    --faint:#5d6579;
+    --accent:#5b8cff;
+    --accent-deep:#3f66e0;
+    --ok:#34d399;
+    --warn:#f5b942;
+    --bad:#f87171;
+    --radius:14px;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0}
+  body{
+    background:
+      radial-gradient(900px 420px at 12% -12%, var(--bg-glow), transparent 70%),
+      radial-gradient(700px 380px at 100% 0%, rgba(52,211,153,.06), transparent 65%),
+      var(--bg);
+    color:var(--text);
+    font:14px/1.55 "Microsoft YaHei UI","Microsoft YaHei","Segoe UI",system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased;
+    overflow:hidden;
+    user-select:none;
+  }
+  .app{
+    height:100vh;display:flex;flex-direction:column;
+    padding:22px 26px 16px;gap:16px;max-width:1180px;margin:0 auto;
+  }
+
+  /* ---------------- 顶部 ---------------- */
+  header{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;flex-wrap:wrap}
+  .brand{display:flex;align-items:center;gap:13px}
+  .logo{
+    width:42px;height:42px;border-radius:13px;flex:0 0 auto;
+    background:linear-gradient(145deg,#5b8cff,#7a5cff 55%,#34d399);
+    display:grid;place-items:center;font-weight:700;font-size:19px;color:#0a0c11;
+    box-shadow:0 8px 22px -10px rgba(91,140,255,.9), inset 0 1px 0 rgba(255,255,255,.35);
+  }
+  h1{margin:0;font-size:17px;font-weight:600;letter-spacing:.2px}
+  .sub{margin:2px 0 0;font-size:12px;color:var(--muted)}
+  .sub b{color:#aeb8cc;font-weight:600}
+
+  .sched{
+    display:flex;align-items:center;gap:12px;
+    background:var(--panel);border:1px solid var(--line);border-radius:12px;
+    padding:9px 13px;
+  }
+  .sched .label{font-size:12.5px;color:var(--muted)}
+  .sched .next{font-size:11.5px;color:var(--faint);min-width:96px;text-align:right}
+  .sched.off .next{color:#39404f}
+  input[type=time]{
+    background:var(--panel-2);border:1px solid var(--line);border-radius:8px;
+    color:var(--text);font:inherit;font-size:12.5px;padding:4px 7px;
+    color-scheme:dark;
+  }
+  input[type=time]:disabled{color:var(--faint);border-color:var(--line-soft)}
+  input[type=time]::-webkit-calendar-picker-indicator{filter:invert(.65);cursor:pointer}
+
+  .switch{position:relative;width:38px;height:21px;flex:0 0 auto;cursor:pointer}
+  .switch input{position:absolute;opacity:0;width:100%;height:100%;margin:0;cursor:pointer}
+  .switch .track{
+    position:absolute;inset:0;border-radius:99px;background:#2a3040;
+    transition:background .18s ease;pointer-events:none;
+  }
+  .switch .track::after{
+    content:"";position:absolute;top:3px;left:3px;width:15px;height:15px;border-radius:50%;
+    background:#8b93a7;transition:transform .18s cubic-bezier(.3,1.4,.5,1),background .18s;
+  }
+  .switch input:checked + .track{background:rgba(91,140,255,.28)}
+  .switch input:checked + .track::after{transform:translateX(17px);background:var(--accent)}
+
+  /* ---------------- 概览 ---------------- */
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:11px}
+  .stat{
+    background:linear-gradient(180deg,var(--panel-2),var(--panel));
+    border:1px solid var(--line);border-radius:var(--radius);padding:11px 14px;
+  }
+  .stat .k{font-size:11.5px;color:var(--faint);letter-spacing:.3px}
+  .stat .v{font-size:19px;font-weight:600;margin-top:3px;font-variant-numeric:tabular-nums}
+  .stat .v small{font-size:12px;color:var(--faint);font-weight:400;margin-left:3px}
+  .stat .v.ok{color:var(--ok)}
+  .stat .v.bad{color:var(--bad)}
+  .stat .v.dim{color:var(--muted);font-size:14px;font-weight:500}
+
+  /* ---------------- 列表 ---------------- */
+  .section-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:-4px}
+  .section-head h2{margin:0;font-size:12.5px;font-weight:600;color:var(--muted);letter-spacing:.4px}
+  .link{font-size:12px;color:var(--faint);cursor:pointer;background:none;border:0;padding:0}
+  .link:hover{color:var(--accent)}
+
+  .list{flex:1 1 auto;overflow-y:auto;display:flex;flex-direction:column;gap:9px;padding-right:5px;margin-right:-5px}
+  .list::-webkit-scrollbar{width:7px}
+  .list::-webkit-scrollbar-thumb{background:#262c3c;border-radius:9px}
+  .list::-webkit-scrollbar-thumb:hover{background:#333b4f}
+  .list::-webkit-scrollbar-track{background:transparent}
+
+  .row{
+    display:flex;align-items:center;gap:13px;
+    background:linear-gradient(180deg,#161a24,#13161e);
+    border:1px solid var(--line);border-radius:var(--radius);
+    padding:13px 15px;transition:border-color .16s ease,transform .16s ease;
+  }
+  .row:hover{border-color:#2e3648}
+  .row.running{border-color:rgba(91,140,255,.5);box-shadow:0 0 0 1px rgba(91,140,255,.14) inset}
+  .row.failed{border-color:rgba(248,113,113,.32)}
+
+  .avatar{
+    width:38px;height:38px;border-radius:11px;flex:0 0 auto;display:grid;place-items:center;
+    font-size:14px;font-weight:600;color:#0b0e14;
+  }
+  .meta{flex:1 1 auto;min-width:0}
+  .title-line{display:flex;align-items:center;gap:8px;min-width:0}
+  .name{
+    background:transparent;border:1px solid transparent;border-radius:6px;
+    color:var(--text);font:inherit;font-weight:600;font-size:14px;
+    padding:1px 5px;margin-left:-5px;width:auto;max-width:210px;text-overflow:ellipsis;
+  }
+  .name:hover{border-color:var(--line-soft);background:#0f1219}
+  .name:focus{outline:none;border-color:rgba(91,140,255,.55);background:#0f1219}
+  .badge{
+    font-size:11px;padding:1.5px 8px;border-radius:99px;flex:0 0 auto;
+    border:1px solid transparent;white-space:nowrap;
+  }
+  .badge.ok{color:var(--ok);background:rgba(52,211,153,.1);border-color:rgba(52,211,153,.22)}
+  .badge.new{color:var(--accent);background:rgba(91,140,255,.12);border-color:rgba(91,140,255,.25)}
+  .badge.bad{color:var(--bad);background:rgba(248,113,113,.1);border-color:rgba(248,113,113,.22)}
+  .badge.idle{color:var(--faint);background:#1a1e28;border-color:var(--line)}
+  .badge.run{color:var(--accent);background:rgba(91,140,255,.1);border-color:rgba(91,140,255,.25);
+    display:inline-flex;align-items:center;gap:5px}
+  .spin{width:9px;height:9px;border-radius:50%;border:1.5px solid rgba(91,140,255,.35);
+    border-top-color:var(--accent);animation:sp .7s linear infinite}
+  @keyframes sp{to{transform:rotate(360deg)}}
+
+  .sub-line{font-size:11.5px;color:var(--faint);margin-top:2px;display:flex;gap:7px;align-items:center;flex-wrap:wrap}
+  .dot{width:3px;height:3px;border-radius:50%;background:#4d566b;flex:0 0 auto}
+  .exp-ok{color:var(--faint)}
+  .exp-soon{color:var(--warn)}
+  .exp-expired{color:var(--bad)}
+  .report{font-size:12px;color:#9aa4ba;margin-top:5px;line-height:1.5;
+    overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+  .report.err{color:#f2a1a1}
+  .report.none{color:#454c5e}
+
+  .acts{display:flex;align-items:center;gap:7px;flex:0 0 auto}
+  button{font:inherit;cursor:pointer;border-radius:9px;transition:all .15s ease}
+  button:disabled{cursor:default;opacity:.45}
+  .mini{
+    background:var(--panel-2);border:1px solid var(--line);color:#c2cadb;
+    font-size:12px;padding:5px 11px;
+  }
+  .mini:hover:not(:disabled){border-color:#3a4358;color:#fff;background:#1c212d}
+  .mini.danger:hover:not(:disabled){border-color:rgba(248,113,113,.45);color:var(--bad);background:rgba(248,113,113,.08)}
+
+  .empty{
+    border:1px dashed #262c3c;border-radius:var(--radius);
+    padding:34px 20px;text-align:center;color:var(--faint);font-size:13px;line-height:1.8;
+  }
+  .empty b{color:#9aa4ba;font-weight:600}
+
+  /* ---------------- 底部 ---------------- */
+  footer{display:flex;align-items:center;justify-content:space-between;gap:12px;
+    padding-top:13px;border-top:1px solid var(--line-soft)}
+  .hint{font-size:11.5px;color:#4d5468}
+  .primary{
+    background:linear-gradient(180deg,#5b8cff,#3f66e0);border:1px solid #4b78ef;color:#fff;
+    font-size:13.5px;font-weight:600;padding:9px 20px;letter-spacing:.2px;
+    box-shadow:0 10px 24px -14px rgba(91,140,255,.95), inset 0 1px 0 rgba(255,255,255,.22);
+  }
+  .primary:hover:not(:disabled){filter:brightness(1.07)}
+  .primary.qr{
+    background:linear-gradient(180deg,#2fd39b,#16a97a);border-color:#25b98a;
+    box-shadow:0 10px 24px -14px rgba(47,211,155,.95), inset 0 1px 0 rgba(255,255,255,.25);
+  }
+  .ghost{background:transparent;border:1px solid var(--line);color:#aab3c6;font-size:13px;padding:8px 15px}
+  .ghost:hover:not(:disabled){border-color:#3a4358;color:#fff;background:#151925}
+
+  /* ---------------- 登录浮层 ---------------- */
+  .mask{
+    position:fixed;inset:0;background:rgba(6,8,12,.72);backdrop-filter:blur(3px);
+    display:none;align-items:center;justify-content:center;z-index:20;
+  }
+  .mask.show{display:flex}
+  .dialog{
+    width:420px;background:linear-gradient(180deg,#181c26,#12151d);
+    border:1px solid #2c3344;border-radius:18px;padding:20px 22px 16px;
+    box-shadow:0 30px 80px -30px #000;
+    animation:pop .18s cubic-bezier(.2,1.2,.4,1);
+  }
+  @keyframes pop{from{opacity:0;transform:translateY(8px) scale(.98)}to{opacity:1;transform:none}}
+  .dlg-title{font-size:15px;font-weight:600}
+  .dlg-sub{font-size:12px;color:var(--muted);margin-top:3px}
+  .dlg-body{padding:18px 0 6px;text-align:center}
+  .qr-hint p{font-size:12.5px;color:#9aa4ba;line-height:1.85;margin:12px 0 0}
+  .pulse{
+    width:56px;height:56px;border-radius:50%;margin:0 auto;
+    background:rgba(91,140,255,.08);border:1px solid rgba(91,140,255,.25);
+    display:grid;place-items:center;animation:breathe 2.2s ease-in-out infinite;
+  }
+  @keyframes breathe{0%,100%{box-shadow:0 0 0 0 rgba(91,140,255,.22)}50%{box-shadow:0 0 0 10px rgba(91,140,255,0)}}
+  .spin.big{width:18px;height:18px;border-width:2px}
+  .link-inline{
+    background:none;border:0;padding:0;margin-top:12px;
+    font-size:12px;color:var(--accent);text-decoration:underline;text-underline-offset:3px;
+  }
+  .link-inline:hover{color:#8fb0ff}
+  .dlg-foot{display:flex;justify-content:flex-end;gap:8px;padding-top:10px}
+
+  /* ---------------- toast ---------------- */
+  #toast{
+    position:fixed;left:50%;bottom:26px;transform:translate(-50%,16px);
+    background:#1b2130;border:1px solid #2e3648;color:var(--text);
+    padding:9px 16px;border-radius:10px;font-size:12.5px;
+    box-shadow:0 16px 40px -18px #000;opacity:0;pointer-events:none;
+    transition:opacity .2s ease,transform .2s ease;max-width:70vw;
+  }
+  #toast.show{opacity:1;transform:translate(-50%,0)}
+  #toast.err{border-color:rgba(248,113,113,.4);color:#ffd9d9}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="brand">
+      <div class="logo">W</div>
+      <div>
+        <h1>WorkBuddy 签到助手</h1>
+        <p class="sub" id="subline">扫码登录 · 登录态隔离 · 一键/定时签到</p>
+      </div>
+    </div>
+    <div class="sched" id="schedBox">
+      <span class="label">每日自动</span>
+      <label class="switch"><input type="checkbox" id="schedOn"><span class="track"></span></label>
+      <input type="time" id="schedTime" value="00:05" step="60">
+      <span class="next" id="nextRun"></span>
+    </div>
+  </header>
+
+  <section class="stats">
+    <div class="stat"><div class="k">账号</div><div class="v" id="statAccounts">0</div></div>
+    <div class="stat"><div class="k">今日已签</div><div class="v" id="statSigned">0</div></div>
+    <div class="stat"><div class="k">上次运行</div><div class="v dim" id="statLast">还没有</div></div>
+    <div class="stat"><div class="k">下次自动</div><div class="v dim" id="statNext">已关闭</div></div>
+  </section>
+
+  <div class="section-head">
+    <h2>账号列表</h2>
+    <button class="link" id="dataDir">数据目录</button>
+  </div>
+
+  <div class="list" id="list"></div>
+
+  <footer>
+    <div style="display:flex;gap:9px;align-items:center">
+      <button class="primary qr" id="qrBtn">扫码添加账号</button>
+      <button class="ghost" id="importBtn">从本机导入</button>
+      <span class="hint" id="footHint">每个账号独立保存登录态，互不影响</span>
+    </div>
+    <button class="primary" id="allBtn">一键签到</button>
+  </footer>
+</div>
+
+<div class="mask" id="loginMask">
+  <div class="dialog">
+    <div class="dlg-head">
+      <div class="dlg-title" id="dlgTitle">微信扫码登录</div>
+      <div class="dlg-sub" id="dlgSub">正在创建登录会话…</div>
+    </div>
+    <div class="dlg-body">
+      <div class="qr-hint">
+        <div class="pulse"><span class="spin big"></span></div>
+        <p id="dlgTip">登录页已在新窗口打开，用微信扫码并在手机上确认即可。<br>
+          扫码成功后窗口会自动关闭，账号自动出现在列表里。</p>
+      </div>
+      <button class="link-inline" id="openInBrowser">二维码没出现？在浏览器中打开登录页</button>
+    </div>
+    <div class="dlg-foot">
+      <button class="ghost" id="cancelLogin">取消</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+const el = (id) => document.getElementById(id);
+let S = { accounts: [], settings: {}, next_run: { text: "已关闭" }, signed_today: 0, busy: false };
+let rows = new Map();       // id -> { node, refs }
+let running = new Set();
+
+const api = () => (window.pywebview && window.pywebview.api) || null;
+
+function toast(msg, isErr) {
+  const t = el("toast");
+  t.textContent = msg;
+  t.className = "show" + (isErr ? " err" : "");
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => { t.className = ""; }, 3200);
+}
+
+function hashHue(str) {
+  let h = 0;
+  for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) % 360;
+  return h;
+}
+function avatarStyle(id) {
+  const h = hashHue(id);
+  return `background:linear-gradient(145deg,hsl(${h} 70% 66%),hsl(${(h + 45) % 360} 68% 54%))`;
+}
+function pad(n) { return String(n).padStart(2, "0"); }
+function hm(ts) {
+  if (!ts) return "";
+  const d = new Date(ts * 1000);
+  return `${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+function dayOf(ts) {
+  if (!ts) return "";
+  const d = new Date(ts * 1000);
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+const RESULT_BADGE = {
+  ALREADY: ["ok", "今日已签"],
+  CLAIMED: ["ok", "刚领取成功"],
+  INACTIVE: ["idle", "活动未开启"],
+  NO_AUTH: ["bad", "凭据缺失"],
+  NO_SESSION: ["bad", "登录失效"],
+  AUTH_REJECTED: ["bad", "登录已过期"],
+  AUTH_ERROR: ["bad", "凭据异常"],
+  FORBIDDEN: ["bad", "无权限"],
+  NETWORK: ["bad", "网络异常"],
+  TIMEOUT: ["bad", "超时"],
+  ERROR: ["bad", "失败"],
+  UNKNOWN: ["bad", "未知结果"],
+};
+
+function badgeFor(acc, isRunning) {
+  if (isRunning) return ["run", "签到中"];
+  const last = acc.last;
+  if (!last) return ["idle", "未运行"];
+  const meta = RESULT_BADGE[last.result] || ["idle", last.result || "未运行"];
+  if (dayOf(last.at) !== S.today && (last.result === "ALREADY" || last.result === "CLAIMED")) {
+    return ["idle", "昨日已签"];
+  }
+  return meta;
+}
+
+function maskUin(uin) {
+  if (!uin) return "";
+  if (uin.length <= 6) return uin;
+  return uin.slice(0, 4) + "****" + uin.slice(-2);
+}
+
+function buildRow(acc) {
+  const node = document.createElement("div");
+  node.className = "row";
+  node.innerHTML = `
+    <div class="avatar"></div>
+    <div class="meta">
+      <div class="title-line">
+        <input class="name" spellcheck="false" maxlength="32">
+        <span class="badge"></span>
+      </div>
+      <div class="sub-line">
+        <span class="uin"></span>
+        <span class="dot"></span>
+        <span class="exp"></span>
+      </div>
+      <div class="report"></div>
+    </div>
+    <div class="acts">
+      <button class="mini go">签到</button>
+      <button class="mini danger del">删除</button>
+    </div>`;
+  const refs = {
+    avatar: node.querySelector(".avatar"),
+    name: node.querySelector(".name"),
+    badge: node.querySelector(".badge"),
+    uin: node.querySelector(".uin"),
+    exp: node.querySelector(".exp"),
+    report: node.querySelector(".report"),
+    go: node.querySelector(".go"),
+    del: node.querySelector(".del"),
+  };
+  refs.avatar.style.cssText = avatarStyle(acc.id);
+  refs.avatar.textContent = (acc.label || "?").trim().slice(0, 1).toUpperCase();
+
+  refs.name.value = acc.label;
+  refs.name.addEventListener("change", async () => {
+    const label = refs.name.value.trim();
+    const next = await api().rename_account(acc.id, label);
+    applyState(next, true);
+  });
+  refs.name.addEventListener("keydown", (e) => { if (e.key === "Enter") refs.name.blur(); });
+
+  refs.go.addEventListener("click", () => runSignin([acc.id]));
+    refs.del.addEventListener("click", async () => {
+    if (!confirm(`从面板移除「${acc.label}」？\n只删除本机保存的这个账号的登录态，不影响其它账号和客户端。`)) return;
+    applyState(await api().remove_account(acc.id));
+    toast("已移除 " + acc.label);
+  });
+  node.addEventListener("mouseenter", () => { if (refs.report.scrollHeight > 40) refs.report.title = refs.report.textContent; });
+
+  return { node, refs };
+}
+
+function paintRow(id) {
+  const acc = S.accounts.find((a) => a.id === id);
+  const row = rows.get(id);
+  if (!acc || !row) return;
+  const { refs, node } = row;
+  const isRunning = running.has(id);
+
+  if (document.activeElement !== refs.name) refs.name.value = acc.label;
+  refs.avatar.textContent = (acc.label || "?").trim().slice(0, 1).toUpperCase();
+  refs.avatar.style.cssText = avatarStyle(acc.id);
+
+  const [cls, text] = badgeFor(acc, isRunning);
+  refs.badge.className = "badge " + cls;
+  refs.badge.innerHTML = cls === "run" ? '<span class="spin"></span>' + text : text;
+
+  const bits = [];
+  if (acc.uin) bits.push("uin " + maskUin(acc.uin));
+  bits.push(acc.kind === "client" ? "客户端导入" : "扫码登录");
+  refs.uin.textContent = bits.join("  ");
+  const expText = acc.expires_note || "";
+  refs.exp.textContent = expText;
+  refs.exp.className = "exp exp-" + (acc.expires_state || "ok");
+
+  const last = acc.last;
+  refs.report.className = "report";
+  if (isRunning) {
+    refs.report.textContent = "正在请求签到接口…";
+    refs.report.classList.add("none");
+  } else if (!last) {
+    refs.report.textContent = "还没有运行过，点右侧「签到」或底部「一键签到」。";
+    refs.report.classList.add("none");
+  } else {
+    refs.report.textContent = (last.at ? hm(last.at) + " · " : "") + (last.report || "无详细结果");
+    if (last.needs_attention) refs.report.classList.add("err");
+  }
+
+  node.classList.toggle("running", isRunning);
+  node.classList.toggle("failed", !isRunning && !!last && !!last.needs_attention);
+  refs.go.disabled = isRunning || S.busy;
+  refs.del.disabled = isRunning;
+  refs.go.textContent = isRunning ? "签到中" : "签到";
+}
+
+function renderList() {
+  const list = el("list");
+  list.innerHTML = "";
+  rows = new Map();
+  if (!S.accounts.length) {
+    const box = document.createElement("div");
+    box.className = "empty";
+    box.innerHTML = `<b>还没有账号</b><br>点左下角「扫码添加账号」，用微信扫一下就能加一个号。<br>
+      每个账号的登录态各存一份，互相隔离；想加几个就重复扫几次。`;
+    list.appendChild(box);
+    return;
+  }
+  S.accounts.forEach((acc) => {
+    const row = buildRow(acc);
+    rows.set(acc.id, row);
+    list.appendChild(row.node);
+    paintRow(acc.id);
+  });
+}
+
+function renderChrome() {
+  const s = S.settings || {};
+  el("schedOn").checked = !!s.enabled;
+  if (document.activeElement !== el("schedTime")) el("schedTime").value = s.time || "00:05";
+  el("schedTime").disabled = !s.enabled;
+  el("schedBox").classList.toggle("off", !s.enabled);
+  const nr = (S.next_run && S.next_run.text) || "已关闭";
+  el("nextRun").textContent = s.enabled ? nr.replace("下次 ", "") : "已关闭";
+  el("statNext").textContent = s.enabled ? (s.time || "") + " 每日" : "已关闭";
+
+  el("statAccounts").textContent = S.accounts.length;
+  const signed = S.signed_today || 0;
+  const total = S.accounts.length;
+  const signedEl = el("statSigned");
+  signedEl.textContent = total ? `${signed}/${total}` : "0";
+  signedEl.className = "v " + (total && signed === total ? "ok" : "");
+
+  const last = S.last_run;
+  const lastEl = el("statLast");
+  if (last) {
+    lastEl.textContent = last.at ? hm(last.at) : "—";
+    lastEl.title = last.text || "";
+  } else {
+    lastEl.textContent = "还没有";
+  }
+
+  el("allBtn").disabled = !S.accounts.length || S.busy;
+  el("allBtn").textContent = S.busy ? "签到中…" : "一键签到";
+  el("importBtn").disabled = S.busy || S.loginActive;
+  el("qrBtn").disabled = S.busy || S.loginActive;
+  el("qrBtn").textContent = S.loginActive ? "等待扫码…" : "扫码添加账号";
+  el("footHint").textContent = S.busy
+    ? "正在顺序签到，请稍候…"
+    : (S.loginActive ? "登录窗口已打开，扫码后自动添加"
+      : (S.accounts.length ? "每个账号独立保存登录态，互不影响" : "扫码一次即可添加一个账号"));
+}
+
+function applyState(state, keepRunning) {
+  if (!state) return;
+  const prev = S.accounts.map((a) => a.id).join(",");
+  S = Object.assign(S, state);
+  S.loginActive = !!(state.login && state.login.active);
+  if (!keepRunning) { /* 保留 running 集合，避免事件交错时闪烁 */ }
+  const next = S.accounts.map((a) => a.id).join(",");
+  if (prev !== next) {
+    renderList();
+  } else {
+    S.accounts.forEach((a) => paintRow(a.id));
+  }
+  syncLoginMask();
+  renderChrome();
+}
+
+function setLoginMask(show, title, sub, tip) {
+  const mask = el("loginMask");
+  if (title) el("dlgTitle").textContent = title;
+  if (sub) el("dlgSub").textContent = sub;
+  if (tip) el("dlgTip").innerHTML = tip;
+  mask.classList.toggle("show", !!show);
+}
+
+function syncLoginMask() {
+  if (S.loginActive) setLoginMask(true); else setLoginMask(false);
+}
+
+async function runSignin(ids) {
+  const a = api();
+  if (!a || S.busy) return;
+  const res = await a.signin(ids);
+  if (res && res.ok === false) toast(res.message || "无法开始签到", true);
+}
+
+async function startLogin() {
+  if (S.loginActive) { setLoginMask(true); return; }
+  S.loginActive = true;
+  setLoginMask(true, "微信扫码登录", "正在创建登录会话…",
+    "马上会弹出一个登录窗口，用微信扫码并在手机上确认。<br>扫码成功后窗口自动关闭，账号自动加入列表。");
+  renderChrome();
+  const res = await api().start_login();
+  if (res && res.ok === false) {
+    S.loginActive = false;
+    setLoginMask(false);
+    renderChrome();
+    toast(res.message || "无法开始登录", true);
+  }
+}
+
+el("allBtn").addEventListener("click", () => runSignin(null));
+el("qrBtn").addEventListener("click", startLogin);
+el("cancelLogin").addEventListener("click", async () => {
+  await api().cancel_login();
+  S.loginActive = false;
+  setLoginMask(false);
+  renderChrome();
+});
+el("openInBrowser").addEventListener("click", () => api().open_login_url());
+el("importBtn").addEventListener("click", async () => {
+  el("importBtn").disabled = true;
+  const res = await api().import_account();
+  el("importBtn").disabled = false;
+  if (res && res.ok) {
+    applyState(res);
+    toast(res.message);
+  } else {
+    toast((res && res.message) || "导入失败", true);
+  }
+});
+el("dataDir").addEventListener("click", () => api().open_data_dir());
+el("schedOn").addEventListener("change", async (e) => {
+  const st = await api().save_settings({ enabled: e.target.checked });
+  applyState(st);
+  toast(e.target.checked ? "已开启每日自动签到" : "已关闭每日自动签到");
+});
+el("schedTime").addEventListener("change", async (e) => {
+  const v = e.target.value || "00:05";
+  const st = await api().save_settings({ time: v });
+  applyState(st);
+  toast("自动签到时间改为 " + v);
+});
+
+window.__ev = (evt) => {
+  if (!evt) return;
+  if (evt.type === "run_start") {
+    S.busy = true;
+    (evt.ids || []).forEach((id) => running.add(id));
+    S.accounts.forEach((a) => paintRow(a.id));
+    renderChrome();
+  } else if (evt.type === "account_start") {
+    running.add(evt.id);
+    paintRow(evt.id);
+    renderChrome();
+  } else if (evt.type === "account_done") {
+    running.delete(evt.id);
+    if (evt.account) {
+      const i = S.accounts.findIndex((a) => a.id === evt.id);
+      if (i >= 0) S.accounts[i] = evt.account; else S.accounts.push(evt.account);
+    }
+    paintRow(evt.id);
+  } else if (evt.type === "run_done") {
+    S.busy = false;
+    running.clear();
+    S.last_run = evt.summary;
+    S.accounts.forEach((a) => paintRow(a.id));
+    renderChrome();
+    if (evt.summary) {
+      const bad = (evt.summary.failed || 0) > 0;
+      toast((evt.summary.trigger === "schedule" ? "定时签到：" : "") + (evt.summary.text || "完成"), bad);
+    }
+  } else if (evt.type === "idle") {
+    S.busy = false;
+    running.clear();
+    S.accounts.forEach((a) => paintRow(a.id));
+    renderChrome();
+  } else if (evt.type === "login_state") {
+    S.loginActive = true;
+    setLoginMask(true, "微信扫码登录", "等待扫码确认",
+      "登录页已在新窗口打开，用微信扫码并在手机上确认。<br>扫码成功后窗口会自动关闭，账号自动加入列表。");
+    renderChrome();
+  } else if (evt.type === "login_browser") {
+    setLoginMask(true, "微信扫码登录", "已在浏览器中打开登录页",
+      "请在弹出的浏览器页面里扫码。<br>扫码确认后账号会自动加入列表，这个提示会自动消失。");
+  } else if (evt.type === "login_done") {
+    S.loginActive = false;
+    setLoginMask(false);
+    if (evt.account) {
+      const i = S.accounts.findIndex((a) => a.id === evt.account.id);
+      if (i >= 0) S.accounts[i] = evt.account; else S.accounts.push(evt.account);
+      S.accounts.sort((a, b) => (a.label || "").localeCompare(b.label || ""));
+      renderList();
+      toast((evt.created ? "已添加 " : "已更新 ") + evt.account.label);
+    }
+    renderChrome();
+  } else if (evt.type === "login_failed") {
+    S.loginActive = false;
+    setLoginMask(false);
+    renderChrome();
+    toast(evt.message || "登录失败", !evt.cancelled);
+  }
+};
+
+async function boot() {
+  if (!api()) return;
+  const state = await api().bootstrap();
+  applyState(state);
+}
+window.addEventListener("pywebviewready", boot);
+if (window.pywebview) boot();
+</script>
+</body>
+</html>
