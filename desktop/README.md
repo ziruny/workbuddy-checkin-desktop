@@ -62,5 +62,7 @@ Linux:   ~/.config/WorkBuddySignin/
 - 想单独验证签到是否正常（不点界面）：
   `dist\WorkBuddySignin.exe --run-signin <uid> --out 结果.json`，uid 见 `accounts.json`。
 - exe / .app 被杀软或 Gatekeeper 拦：PyInstaller 未签名产物的常见现象。
-  Windows 加信任即可；macOS 可 `xattr -dr com.apple.quarantine "dist/WorkBuddySignin.app"`。
+  Windows 加信任即可；macOS 提示「无法验证开发者」时（不是报毒，是没公证）：
+  系统设置 → 隐私与安全性 → 拉到底点「仍要打开」，或执行
+  `xattr -dr com.apple.quarantine /Applications/WorkBuddySignin.app`。
 - 窗口关了但进程还在（macOS 历史问题）：现在关窗即退出，单实例锁会一起释放。

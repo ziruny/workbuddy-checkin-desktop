@@ -22,8 +22,8 @@
 | [**WorkBuddySignin.exe**](../../releases) | Windows 10/11 x64，单文件，双击即用 |
 | [**WorkBuddySignin.dmg**](../../releases) | macOS（Apple Silicon），拖进「应用程序」 |
 
-> 首次运行可能被 SmartScreen / Gatekeeper 拦一下（产物未做代码签名）：
-> Windows 点「更多信息 → 仍要运行」，macOS 右键 → 打开。
+> 首次运行可能被拦一下（产物未做 Apple 公证 / Windows 代码签名）：
+> Windows 点「更多信息 → 仍要运行」；macOS 见下面[打不开怎么办](#macos-打不开怎么办)。
 
 ## 三步用起来
 
@@ -58,10 +58,35 @@
 | 提示「登录已过期」 | 该账号被服务端作废了（改密码 / 换设备 / 被踢），重新扫一次即可，其它号不受影响 |
 | 扫码后没反应 | 确认手机微信点了「允许」；二维码约 5 分钟过期，过期就取消重来 |
 | 定时没跑 | 面板得开着（或勾了开机自启）。错过的时间点在下次启动后补 |
-| 杀软 / Gatekeeper 拦截 | PyInstaller 未签名产物的常见情况：Windows 加信任，macOS 右键 → 打开 |
+| 杀软 / SmartScreen 拦截 | PyInstaller 未签名产物的常见情况。Windows 点「更多信息 → 仍要运行」 |
+| macOS 提示「无法验证开发者」 | 见下面[打不开怎么办](#macos-打不开怎么办) |
 | 想自己构建 | `打包exe.bat`（Windows）/ `bash 打包mac.sh`（macOS），需 Python 3.9+ 与 `pip install pywebview pyinstaller` |
 
 更多（数据目录、日志、免界面自检）见 **[desktop/README.md](desktop/README.md)**。
+
+### macOS 打不开怎么办
+
+弹窗写的「Apple 无法验证是否包含恶意软件」不是在报毒，是因为这个包**没有 Apple 开发者签名和公证**——
+自己用 PyInstaller 打的包都这样，签发证书是每年 $99 的事，本项目没买。解除方式任选一种：
+
+**图形界面（推荐，适用于新版 macOS）**
+
+1. 双击 App，弹窗点「完成」
+2. 打开 **系统设置 → 隐私与安全性**，往下拉到「安全性」
+3. 看到「已阻止使用 WorkBuddySignin，因为来自身份不明的开发者」，点 **仍要打开**
+4. 输入密码，再双击一次 App，弹窗里这次会多出「打开」按钮
+
+**终端（一步到位）**
+
+```bash
+# 先把 App 拖进「应用程序」，再执行
+xattr -dr com.apple.quarantine /Applications/WorkBuddySignin.app
+```
+
+**老版本系统（macOS 14 及更早）**：按住 Control 点 App → 打开 → 弹窗里点「打开」。
+
+如果提示的是「已损坏，无法打开」而不是「无法验证开发者」，也是同一原因（拷贝/dmg 挂载导致签名失效），
+用上面的 `xattr` 命令即可，不要去点「移到废纸篓」。
 
 ## 命令行版
 
